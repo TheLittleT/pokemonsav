@@ -15,6 +15,13 @@ if location.search? and location.search.substr(1)
     window.url = settings.urlPrefix + window.url
   [..., window.filename] = location.search.substr(1).split('/')
 
+service = analytics.getService 'GPemu'
+service.getConfig().addCallback (config) ->
+  config.setTrackingPermitted true
+tracker = service.getTracker 'UA-6667993-15'
+tracker.sendAppView 'drag-and-drop'
+tracker.startTiming 'js', 'load'
+
 if window.url and window.filename
   xhr = new XMLHttpRequest()
   xhr.open 'GET', window.url, true
@@ -25,8 +32,6 @@ if window.url and window.filename
 else
   loading.classList.add 'hidden'
   draghint.classList.remove 'hidden'
-
-navigator.serviceWorker.register 'worker.js' if navigator.serviceWorker
 
 retro = null
 
@@ -75,6 +80,7 @@ error = (e) ->
   loading.classList.add 'hidden'
   document.getElementById('error').classList.remove 'hidden'
   console.error e
+  tracker.sendException e.message if tracker?
 
 writeSave = (retro) ->
   try
@@ -101,6 +107,7 @@ play = (rom, extension) ->
       loadSave retro
       System.import settings.overlays[retro.name] + 'index.json!' if settings.overlays[retro.name] and 'ontouchstart' in window
     ]).then ([core, save, _overlay]) ->
+      tracker.sendAppView 'play' if tracker?
       createOverlay _overlay, settings.overlays[retro.name] if _overlay?
       retro.core = core
       retro.game = rom
@@ -122,6 +129,7 @@ play = (rom, extension) ->
 
 loadData = (filename, buffer) ->
   draghint.classList.add 'hidden'
+  tracker.sendEvent 'play', filename if tracker?
   extension = utils.getExtension filename
   rom = null
   if extension is 'zip'
@@ -137,6 +145,7 @@ loadData = (filename, buffer) ->
   .catch error
 
 load = (file) ->
+  tracker.sendEvent 'file' if tracker?
   return if not file instanceof Blob
   draghint.classList.add 'hidden'
   reader = new FileReader()
@@ -146,6 +155,7 @@ load = (file) ->
 
 window.addEventListener 'drop', (event) ->
   return if draghint.classList.contains 'hidden'
+  tracker.sendEvent 'drop' if tracker?
   loading.classList.remove 'hidden'
   event.preventDefault()
   draghint.classList.remove 'hover'
@@ -170,8 +180,10 @@ menu = document.getElementById 'menu'
 window.addEventListener 'contextmenu', (event) ->
   if draghint.classList.contains 'hidden' and retro?
     if retro.classList.contains 'hidden'
+      tracker.sendAppView 'play' if tracker?
       retro.start()
     else
+      tracker.sendAppView 'settings' if tracker?
       retro.stop()
     retro.classList.toggle 'hidden'
     overlay.classList.toggle 'hidden'
@@ -179,6 +191,7 @@ window.addEventListener 'contextmenu', (event) ->
     event.preventDefault()
 
 window.resume = ->
+  tracker.sendEvent 'play' if tracker?
   retro.classList.remove 'hidden'
   overlay.classList.toggle 'hidden'
   menu.classList.add 'hidden'
@@ -186,6 +199,7 @@ window.resume = ->
 document.getElementById('resume').addEventListener 'click', window.resume
 
 window.reset = ->
+  tracker.sendEvent 'reset' if tracker?
   retro.stop()
   retro.core.reset()
   window.resume()
@@ -193,15 +207,18 @@ document.getElementById('reset').addEventListener 'click', window.reset
 
 window.mute = ->
   if retro.player.destination.gain.value == 0
+    tracker.sendEvent 'unmute' if tracker?
     retro.player.destination.gain.value = 1
     document.getElementById('mute').textContent = 'mute'
   else
+    tracker.sendEvent 'mute' if tracker?
     retro.player.destination.gain.value = 0
     document.getElementById('mute').textContent = 'unmute'
   window.resume()
 document.getElementById('mute').addEventListener 'click', window.mute
 
 window.save = ->
+  tracker.sendEvent 'save' if tracker?
   a = document.createElement 'a'
   document.body.appendChild a
   a.classList.add 'hidden'
@@ -225,6 +242,7 @@ savechooser.addEventListener 'change', ->
     window.resume()
   reader.readAsArrayBuffer file
 window.load = ->
+  tracker.sendEvent 'load' if tracker?
   savechooser.click()
 document.getElementById('load').addEventListener 'click', window.load
 
@@ -235,6 +253,7 @@ chooser.addEventListener 'change', ->
   load this.files[0]
 window.addEventListener 'click', (event) ->
   if not draghint.classList.contains 'hidden'
+    tracker.sendEvent 'click' if tracker?
     draghint.classList.add 'hover'
     chooser.click()
 
