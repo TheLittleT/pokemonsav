@@ -1,5 +1,7 @@
 # gametime-player
 
+Use this if your school blocks the original
+
 A super simple JavaScript based libretro frontend.
 
 ## Demo
